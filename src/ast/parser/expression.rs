@@ -5,7 +5,7 @@ use crate::tokens::{Lexer, Token};
 use std::{iter::Peekable, mem};
 
 pub struct ExpressionParser<'a> {
-    lexer: Peekable<Lexer<'a>>,
+   pub lexer: Peekable<Lexer<'a>>, // hecho público
 }
 
 impl<'a> ExpressionParser<'a> {
@@ -18,7 +18,7 @@ impl<'a> ExpressionParser<'a> {
         self.comparison()
     }
 
-    fn lvalue(&mut self) -> Result<LValue, Error> {
+   pub fn lvalue(&mut self) -> Result<LValue, Error> {
         // println!("lvalue");
         match self.lexer.peek_mut() {
             Some(Token::Identifier(v)) => {
@@ -42,7 +42,7 @@ impl<'a> ExpressionParser<'a> {
                     } else {
                         Err(Error {
                             kind: ErrorKind::MismatchedParentheses,
-                            line: 0, // TODO
+                            line: 0, // TODO FIX : line: self.lexer.current_line(), 
                         })
                     }
                 } else {
@@ -53,7 +53,7 @@ impl<'a> ExpressionParser<'a> {
                 // println!("expected identifier");
                 Err(Error {
                     kind: ErrorKind::ExpectedIdentifier,
-                    line: 0, // TODO
+                    line: 0,// TODO
                 })
             }
         }
@@ -73,17 +73,16 @@ impl<'a> ExpressionParser<'a> {
                 res
             }
             Some(Token::LeftParen) => {
-                self.lexer.next();
+                self.lexer.next(); // Consumir '('
                 let res = self.parse()?;
-                // if self.lexer.next() == Some(Token::RightParen) {
-                //     Ok(res)
-                // } else {
-                //     Err(Error {
-                //         kind: ErrorKind::MismatchedParentheses,
-                //         line: 0, // TODO
-                //     })
-                // }
-                Ok(res)
+                if self.lexer.next() == Some(Token::RightParen) {
+                    Ok(res)
+                } else {
+                    Err(Error {
+                        kind: ErrorKind::MismatchedParentheses,
+                        line: 0, // TODO
+                    })
+                }
             }
             _ => Ok(None),
         }
@@ -260,7 +259,33 @@ mod tests {
         assert_eq!(res, expected);
     }
 
-    // FIXME: Check operator precedence
+    // FIXME: Check operator precedence --> Correct
+
+    #[test]
+    fn operator_precedence() {
+        let expected = Expression::Binary {
+            left: Box::new(Expression::Number(1)),
+            op: BinaryOperator::Add,
+            right: Box::new(Expression::Binary {
+                left: Box::new(Expression::Number(2)),
+                op: BinaryOperator::Mul,
+                right: Box::new(Expression::Number(3)),
+            }),
+        };
+    
+        let lexer = Lexer::new("1 + 2 * 3");
+        let mut parser = ExpressionParser::new(lexer.peekable());
+    
+        let res = parser
+            .add_sub()
+            .expect("Failed to parse expression")
+            .expect("Expected an expression");
+    
+        dbg!(&res);  // Agrega esta línea para ver el resultado generado
+    
+        assert_eq!(res, expected);
+    }
+
     #[test]
     fn mul_div_1() {
         let expected = Expression::Binary {
